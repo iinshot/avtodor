@@ -26,7 +26,6 @@
     </style>
 </head>
 <body>
-    <!-- Навигация -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="/">
@@ -34,10 +33,8 @@
             </a>
         </div>
     </nav>
-
     <div class="container-fluid">
         <div class="row">
-            <!-- Сайдбар -->
             <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
                 <div class="position-sticky pt-3">
                     <ul class="nav flex-column">
@@ -56,21 +53,9 @@
                                 <i class="fas fa-exclamation-triangle"></i> Нарушения
                             </a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="/pvp">
-                                <i class="fas fa-map-marker-alt"></i> ПВП
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="/balance">
-                                <i class="fas fa-wallet"></i> Баланс
-                            </a>
-                        </li>
                     </ul>
                 </div>
             </nav>
-
-            <!-- Основной контент -->
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
                 {% block content %}{% endblock %}
             </main>

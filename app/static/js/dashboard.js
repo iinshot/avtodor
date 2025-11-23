@@ -8,7 +8,6 @@ async function loadDashboardData() {
         document.getElementById('violationsCount').textContent = data.today_violations;
         document.getElementById('pvpCount').textContent = data.active_pvp;
 
-        // Обновляем статус баланса
         const balanceStatus = document.getElementById('balanceStatus');
         if (data.balance < 40000) {
             balanceStatus.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Низкий баланс!';
@@ -18,7 +17,6 @@ async function loadDashboardData() {
             balanceStatus.className = 'card-text text-light';
         }
 
-        // Загружаем графики
         loadCharts();
         loadRecentViolations();
 
@@ -29,7 +27,6 @@ async function loadDashboardData() {
 
 // Загрузка графиков
 function loadCharts() {
-    // Уничтожаем предыдущие графики, если они существуют
     if (window.violationsChart) {
         window.violationsChart.destroy();
     }
@@ -37,7 +34,6 @@ function loadCharts() {
         window.pvpChart.destroy();
     }
 
-    // График нарушений
     const violationsCtx = document.getElementById('violationsChart').getContext('2d');
     window.violationsChart = new Chart(violationsCtx, {
         type: 'line',
@@ -61,7 +57,6 @@ function loadCharts() {
         }
     });
 
-    // График ПВП
     const pvpCtx = document.getElementById('pvpChart').getContext('2d');
     window.pvpChart = new Chart(pvpCtx, {
         type: 'doughnut',
@@ -83,7 +78,7 @@ function loadCharts() {
 // Загрузка последних нарушений
 async function loadRecentViolations() {
     try {
-        const response = await fetch('/violations');  // Изменили URL
+        const response = await fetch('/violations');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -148,8 +143,6 @@ async function scrapeAvtodor() {
     const resultDiv = document.getElementById('scraperResult');
     const messageDiv = document.getElementById('scraperMessage');
     const lastUpdateStatus = document.getElementById('lastUpdateStatus');
-
-    // Сохраняем оригинальный текст кнопки
     const originalHtml = scrapeBtn.innerHTML;
 
     scrapeBtn.disabled = true;
@@ -167,19 +160,16 @@ async function scrapeAvtodor() {
 
         if (data.success) {
             messageDiv.innerHTML = `
-                <strong>✅ ${data.message}</strong><br>
+                <strong>${data.message}</strong><br>
                 <small>Получено поездок: ${data.scraped_count}, сохранено: ${data.saved_count}</small>
             `;
             resultDiv.style.display = 'block';
 
-            // Обновляем статус последнего обновления
             const now = new Date();
             lastUpdateStatus.innerHTML = `Последнее обновление: ${now.toLocaleTimeString()}`;
 
-            // Показываем уведомление
             showNotification(`Данные успешно получены! Добавлено ${data.saved_count} новых транзакций`, 'success');
 
-            // Обновляем статистику дашборда
             setTimeout(loadDashboardData, 1000);
 
         } else {
@@ -210,7 +200,6 @@ function viewTransactions() {
 
 // Функция для отображения уведомлений
 function showNotification(message, type = 'info') {
-    // Создаем элемент уведомления
     const notification = document.createElement('div');
     notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
     notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
@@ -219,10 +208,8 @@ function showNotification(message, type = 'info') {
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
 
-    // Добавляем на страницу
     document.body.appendChild(notification);
 
-    // Автоматически скрываем через 5 секунд
     setTimeout(() => {
         if (notification.parentNode) {
             notification.remove();
@@ -233,6 +220,5 @@ function showNotification(message, type = 'info') {
 // Автопроверка статуса при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
     loadDashboardData();
-    // Проверяем статус авторизации с небольшой задержкой
     setTimeout(checkAuthStatus, 1000);
 });

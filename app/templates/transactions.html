@@ -2,93 +2,126 @@
 
 {% block content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Транзакции Т-Pass</h1>
+    <h1 class="h2">Транзакции</h1>
     <div class="btn-toolbar mb-2 mb-md-0">
-        <button class="btn btn-sm btn-outline-primary me-2" id="uploadBtn">
-            <i class="fas fa-upload"></i> Загрузить данные
-        </button>
-        <button class="btn btn-sm btn-outline-secondary" id="filterBtn">
-            <i class="fas fa-filter"></i> Фильтр
-        </button>
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-primary" id="refreshBtn" onclick="loadTransactions()">
+                <i class="fas fa-sync-alt"></i> Обновить
+            </button>
+            <a href="/" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Назад
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Статистика -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <h6 class="card-title">Всего транзакций</h6>
+                <h3 id="totalTransactions">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h6 class="card-title">За сегодня</h6>
+                <h3 id="todayTransactions">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <h6 class="card-title">Из Avtodor</h6>
+                <h3 id="avtodorTransactions">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <h6 class="card-title">Сумма за сегодня</h6>
+                <h3 id="todayTotalPaid">0 ₽</h3>
+            </div>
+        </div>
     </div>
 </div>
 
 <!-- Фильтры -->
-<div class="row mb-3" id="filtersSection" style="display: none;">
-    <div class="col-md-3">
-        <label class="form-label">Транспондер</label>
-        <input type="text" class="form-control" id="filterTransponder">
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Фильтры</h5>
     </div>
-    <div class="col-md-3">
-        <label class="form-label">Дата с</label>
-        <input type="date" class="form-control" id="filterDateFrom">
-    </div>
-    <div class="col-md-3">
-        <label class="form-label">Дата по</label>
-        <input type="date" class="form-control" id="filterDateTo">
-    </div>
-    <div class="col-md-3">
-        <label class="form-label">ПВП</label>
-        <input type="text" class="form-control" id="filterPVP">
-    </div>
-    <div class="col-md-12 mt-2">
-        <button class="btn btn-primary btn-sm" id="applyFilters">Применить</button>
-        <button class="btn btn-secondary btn-sm" id="clearFilters">Очистить</button>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Источник данных</label>
+                <select class="form-select" id="sourceFilter" onchange="applyFilters()">
+                    <option value="">Все источники</option>
+                    <option value="avtodor_scraper">Avtodor</option>
+                    <option value="manual">Ручной ввод</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Транспондер</label>
+                <input type="text" class="form-control" id="transponderFilter" placeholder="Номер транспондера" oninput="applyFilters()">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Дата от</label>
+                <input type="date" class="form-control" id="dateFromFilter" onchange="applyFilters()">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Дата до</label>
+                <input type="date" class="form-control" id="dateToFilter" onchange="applyFilters()">
+            </div>
+        </div>
     </div>
 </div>
 
 <!-- Таблица транзакций -->
-<div class="table-responsive">
-    <table class="table table-striped table-hover" id="transactionsTable">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Транспондер</th>
-                <th>ПВП</th>
-                <th>Дата</th>
-                <th>Тариф</th>
-                <th>Скидка</th>
-                <th>Итог</th>
-                <th>Статус</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for transaction in transactions %}
-            <tr>
-                <td>{{ transaction.id_transaction }}</td>
-                <td>{{ transaction.transponder }}</td>
-                <td>
-                    <span class="badge bg-info">{{ transaction.PVP_code }}</span>
-                </td>
-                <td>{{ transaction.occurred_at }}</td>
-                <td>₽{{ transaction.base_tariff }}</td>
-                <td>
-                    {% if transaction.discount %}
-                    <span class="badge bg-success">-{{ transaction.discount }}%</span>
-                    {% else %}
-                    <span class="badge bg-secondary">0%</span>
-                    {% endif %}
-                </td>
-                <td><strong>₽{{ transaction.paid }}</strong></td>
-                <td>
-                    {% if transaction.is_violation %}
-                    <span class="badge violation-badge">Нарушение</span>
-                    {% else %}
-                    <span class="badge normal-badge">Норма</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Список транзакций</h5>
+        <div class="d-flex align-items-center">
+            <span class="me-2 text-muted" id="showingText">Загрузка...</span>
+            <div class="btn-group">
+                <button class="btn btn-sm btn-outline-secondary" onclick="prevPage()" id="prevBtn">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="nextPage()" id="nextBtn">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Дата и время</th>
+                        <th>ПВП</th>
+                        <th>Транспондер</th>
+                        <th>Базовая стоимость</th>
+                        <th>Скидка</th>
+                        <th>Оплачено</th>
+                    </tr>
+                </thead>
+                <tbody id="transactionsTable"></tbody>
+            </table>
+        </div>
+        <div id="loadingIndicator" class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Загрузка...</span>
+            </div>
+            <p class="mt-2 text-muted">Загрузка транзакций...</p>
+        </div>
+    </div>
 </div>
-
-<!-- Пагинация -->
-<nav>
-    <ul class="pagination justify-content-center" id="pagination">
-        <!-- Пагинация генерируется через JavaScript -->
-    </ul>
-</nav>
 {% endblock %}
 
 {% block scripts %}

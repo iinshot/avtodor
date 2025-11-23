@@ -1,3 +1,48 @@
 body { font-family: Arial, sans-serif; margin: 20px; }
 header { background: #007bff; color: white; padding: 10px; border-radius: 6px; }
 a { color: #007bff; text-decoration: none; }
+
+/* Стили для карточек дашборда */
+.dashboard-card {
+    transition: transform 0.2s ease-in-out;
+    border: none;
+    border-radius: 10px;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px);
+}
+
+/* Анимация для кнопок */
+.btn {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Стили для уведомлений */
+.position-fixed {
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Стили для статусов */
+.text-success {
+    color: #198754 !important;
+}
+
+.text-warning {
+    color: #ffc107 !important;
+}
+
+.text-danger {
+    color: #dc3545 !important;
+}
