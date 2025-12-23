@@ -1,18 +1,22 @@
 import os
 import sys
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, Request, UploadFile, File, HTTPException, Depends
+from fastapi import FastAPI, Request, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlmodel import select, func
 from .database import init_db
-from .controllers import violation_controller, pvp_controller, transaction_controller
-from .services.scraper_service import scraper_service
+from .controllers import violation_controller, transaction_controller
+from .services.web_scraper.avtodor_session import avtodor_session
 from .models.transaction import Transaction
 from .models.violation import Violation
-from sqlmodel import select
-from .controllers.transaction_controller import get_today_range
+from .services.get_date import get_month_range, get_today_range
 from .database import async_session_maker
+from .config import settings
+from .services.avtodor_manager import avtodor_manager
+from .services.web_scraper.browser_manager import browser_manager
 
 if getattr(sys, "frozen", False):
     base_path = Path(sys._MEIPASS) / "app"
@@ -26,25 +30,26 @@ static_dir = StaticFiles(directory=str(base_path / "static"))
 async def lifespan(app: FastAPI):
     os.makedirs("data", exist_ok=True)
     await init_db()
-    try:
-        from .services.avtodor_manager import avtodor_manager
-        success = await avtodor_manager.initialize()
-        if success:
-            print("Avtodor менеджер успешно инициализирован")
-        else:
-            print("Не удалось инициализировать Avtodor менеджер")
-    except Exception as e:
-        print(f"Ошибка инициализации Avtodor менеджера: {e}")
+    async def init_avtodor():
+        await asyncio.sleep(1)
+        try:
+            success = await browser_manager.init()
+            if success:
+                print("Avtodor менеджер успешно инициализирован")
+            else:
+                print("Не удалось инициализировать Avtodor менеджер")
+        except Exception as e:
+            print(f"Ошибка инициализации Avtodor менеджера: {e}")
 
     yield
 
-    # Shutdown - закрываем сессию
+    asyncio.create_task(init_avtodor())
+
     try:
-        from .services.avtodor_manager import avtodor_manager
-        await avtodor_manager.close()
-        print("✅ Avtodor сессия закрыта")
+        await browser_manager.close()
+        print("Avtodor сессия закрыта")
     except Exception as e:
-        print(f"⚠️ Ошибка при закрытии сессии: {e}")
+        print(f"Ошибка при закрытии сессии: {e}")
 
 app = FastAPI(
     title="Autodor Monitor",
@@ -55,7 +60,6 @@ app.mount("/static", StaticFiles(directory=str(base_path / "static")), name="sta
 
 app.include_router(transaction_controller.router)
 app.include_router(violation_controller.router)
-app.include_router(pvp_controller.router)
 
 @app.get("/")
 async def index(request: Request):
@@ -77,52 +81,78 @@ async def violations_page(request: Request):
         "violations": violations
     })
 
-@app.get("/pvp")
-async def pvp_page(request: Request):
-    pass
-
-@app.get("/balance")
-async def balance_page(request: Request):
-    pass
-
-@app.get("/dashboard/stats")
+@app.get("/stats")
 async def get_dashboard_stats():
     async with async_session_maker() as session:
         start, end = get_today_range()
-        query_transaction = select(Transaction).where(
-            Transaction.occurred_at >= start,
-            Transaction.occurred_at <= end
-        )
-        result_transaction = await session.execute(query_transaction)
-        today_transactions = len(result_transaction.all())
+        start_month, end_month = get_month_range()
 
-        query_violation = select(Violation).where(
-            Violation.occurred_at >= start,
-            Violation.occurred_at <= end
+        today_violations = await session.scalar(
+            select(func.count(Violation.id_transaction)).where(
+                Violation.occurred_at >= start,
+                Violation.occurred_at <= end
+            )
         )
-        result_violation = await session.execute(query_violation)
-        today_violations = len(result_violation.all())
+
+        month_violations = await session.scalar(
+            select(func.count(Violation.id_transaction)).where(
+                Violation.occurred_at >= start_month,
+                Violation.occurred_at <= end_month
+            )
+        )
+
+        today_transactions = await session.scalar(
+            select(func.count(Transaction.id_transaction)).where(
+                Transaction.occurred_at >= start,
+                Transaction.occurred_at <= end
+            )
+        )
+
+        month_transactions = await session.scalar(
+            select(func.count(Transaction.id_transaction)).where(
+                Transaction.occurred_at >= start_month,
+                Transaction.occurred_at <= end_month
+            )
+        )
 
         return {
-            "balance": "Много денег",
+            "month_transactions": month_transactions,
             "today_transactions": today_transactions,
             "today_violations": today_violations,
-            "active_pvp": "Наверное есть"
+            "month_violations": month_violations
         }
-
-@app.post("/upload")
-async def upload_transactions_file(file: UploadFile = File(...)):
-    return {"message": "Файл получен", "filename": file.filename}
 
 @app.get("/check-avtodor-auth")
 async def check_avtodor_authentication():
-    """Проверка учетных данных Avtodor"""
     try:
-        is_valid = await scraper_service.check_credentials()
-        return {
-            "valid": is_valid,
-            "username_configured": bool(scraper_service.manager.username),
-            "password_configured": bool(scraper_service.manager.password)
-        }
+        def ensure_authenticated():
+            if not avtodor_session.is_authenticated():
+                return browser_manager.init(headless=True)
+            return True
+        valid = await asyncio.to_thread(ensure_authenticated)
+        return {"valid": valid}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(500, str(e))
+
+@app.get("/balance")
+async def get_balance():
+    try:
+        if not avtodor_session.is_authenticated():
+            success = await asyncio.to_thread(
+                avtodor_session.login,
+                settings.AVTODOR_USERNAME,
+                settings.AVTODOR_PASSWORD
+            )
+            if not success:
+                raise HTTPException(401, "Failed to authenticate")
+        valid = await asyncio.to_thread(
+            avtodor_session.has_balance
+        )
+        balance = await asyncio.to_thread(avtodor_session.get_balance)
+        return {
+            "balance": balance,
+            "valid": valid,
+        }
+
+    except Exception as e:
+        raise HTTPException(500, f"Error getting balance: {e}")

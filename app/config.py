@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     AVTODOR_USERNAME: str = os.getenv("AVTODOR_USERNAME")
     AVTODOR_PASSWORD: str = os.getenv("AVTODOR_PASSWORD")
+    LOGIN_URL: str = os.getenv("LOGIN_URL")
 
     model_config = ConfigDict(
         env_file=ENV_PATH if ENV_PATH.exists() else None,
