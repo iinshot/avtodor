@@ -1,235 +1,399 @@
+let tableId = "transactionsTable";
+let prevBtnId = "prevBtnTransaction";
+let nextBtnId = "nextBtnTransaction";
+let showingTextId = "showingText";
+let apiUrl = "/transactions/info";
+let refreshBtnId = "refreshBtn";
+let filterTriggerId = "sourceFilter";
 let currentPage = 1;
 const pageSize = 50;
 let totalItems = 0;
 let currentFilters = {};
+let scrapeFrom = null;
+let scrapeTo = null;
+let isScraping = false;
 
-function formatDateTime(dateString) {
+// Загружает статистику транзакций
+async function loadDashboardDataTransactions() {
+    try {
+        const response = await fetch('/transactions/stats');
+        const data = await response.json();
+
+        document.getElementById('monthTransactions').textContent = data.month_transactions;
+        document.getElementById('todayTransactions').textContent = data.today_transactions;
+        document.getElementById('totalTransactions').textContent = data.total_transactions;
+        document.getElementById('monthPaidTransactions').textContent = '₽ ' + data.sum_transactions.toLocaleString();
+
+    } catch (error) {
+        console.error('Ошибка загрузки данных:', error);
+    }
+}
+
+// Отвечает за прогресс бар и количество записей
+async function updateProgress() {
+    const progressBar = document.getElementById("scrapeProgress");
+    const countLabel = document.getElementById("scrapeCount");
+
+    try {
+        const res = await fetch("/transactions/progress");
+        const data = await res.json();
+        const target = data.progress || 0;
+        const current = parseFloat(progressBar.style.width) || 0;
+        const newWidth = current + (target - current) * 0.15;
+        progressBar.style.width = newWidth + "%";
+
+        if (countLabel) {
+            countLabel.textContent = `Получено записей: ${data.items_count}`;
+        }
+
+        if (isScraping && newWidth < 100) {
+            setTimeout(updateProgress, 300);
+        }
+
+        if (target === 100) {
+            progressBar.style.width = "100%";
+        }
+
+    } catch (err) {
+        console.error("Ошибка прогресса:", err);
+    }
+}
+
+// Форматирует дату в читаемый формат
+function formatDateTime(dateString){
     try {
         const date = new Date(dateString);
         return date.toLocaleDateString('ru-RU') + ' ' + date.toLocaleTimeString('ru-RU', {
             hour: '2-digit',
             minute: '2-digit'
         });
-    } catch (e) {
+    } catch {
         return dateString;
     }
 }
 
-// Управление индикатором загрузки
+// Показывает/скрывает индикатор загрузки
 function showLoading(show) {
-    const loading = document.getElementById('loadingIndicator');
-    const table = document.getElementById('transactionsTable');
-
-    if (loading && table) {
-        if (show) {
-            loading.style.display = 'block';
-            table.style.opacity = '0.5';
-        } else {
-            loading.style.display = 'none';
-            table.style.opacity = '1';
-        }
-    }
+    const loading = document.getElementById("loadingIndicator");
+    const table = document.getElementById(tableId);
+    if (loading) loading.style.display = show ? 'block' : 'none';
+    if (table) table.style.opacity = show ? '0.5' : '1';
 }
 
-// Показать ошибку
+// Отображает сообщение об ошибке в таблице
 function showError(message) {
-    const tbody = document.getElementById('transactionsTable');
-    if (tbody) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="8" class="text-center py-4 text-danger">
-                    <i class="fas fa-exclamation-triangle fa-2x mb-2"></i><br>
-                    ${message}
-                </td>
-            </tr>
-        `;
-    }
-}
-
-// Загрузка статистики
-async function loadStats() {
-    try {
-        const response = await fetch('/transactions/stats');
-        const stats = await response.json();
-
-        // Безопасное обновление элементов
-        const elements = {
-            'totalTransactions': stats.total?.toLocaleString() || '0',
-            'todayTransactions': stats.today?.toLocaleString() || '0',
-            'todayTotalPaid': (stats.today_total_paid || 0).toLocaleString() + ' ₽'
-        };
-
-        Object.entries(elements).forEach(([id, value]) => {
-            const element = document.getElementById(id);
-            if (element) element.textContent = value;
-        });
-
-    } catch (error) {
-        console.error('Ошибка загрузки статистики:', error);
-    }
-}
-
-// Отображение транзакций в таблице
-function displayTransactions(transactions) {
-    const tbody = document.getElementById('transactionsTable');
+    const tbody = document.getElementById(tableId);
     if (!tbody) return;
-
-    if (!transactions || transactions.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="6" class="text-center py-4 text-muted">
-                    <i class="fas fa-inbox fa-2x mb-2"></i><br>
-                    Нет данных для отображения
-                </td>
-            </tr>
-        `;
-        return;
-    }
-
-    tbody.innerHTML = transactions.map(transaction => `
+    tbody.innerHTML = `
         <tr>
-            <td>
-                <div class="fw-bold">${formatDateTime(transaction.occurred_at)}</div>
-            </td>
-            <td>
-                <span class="badge bg-primary">${transaction.PVP_code || "—"}</span>
-            </td>
-            <td>
-                <code class="text-dark">${transaction.transponder || '—'}</code>
-            </td>
-            <td>
-                ${transaction.base_tariff ? `
-                    <span class="fw-bold">${transaction.base_tariff.toLocaleString()} ₽</span>
-                ` : '<span class="text-muted">—</span>'}
-            </td>
-            <td>
-                ${transaction.discount ? `
-                    <span class="badge bg-success">${transaction.discount}%</span>
-                ` : '<span class="text-muted">—</span>'}
-            </td>
-            <td>
-                ${transaction.paid ? `
-                    <span class="fw-bold text-success">${transaction.paid.toLocaleString()} ₽</span>
-                ` : '<span class="text-muted">—</span>'}
+            <td colspan="20" class="text-center py-4 text-danger">
+                <i class="fas fa-exclamation-triangle fa-2x mb-2"></i><br>
+                ${message}
             </td>
         </tr>
-    `).join('');
+    `;
 }
 
-// Обновление пагинации
-function updatePagination(data) {
-    const prevBtn = document.getElementById('prevBtn');
-    const nextBtn = document.getElementById('nextBtn');
-
+// Обновляет состояние кнопок пагинации
+function updatePagination() {
+    const prevBtn = document.getElementById(prevBtnId);
+    const nextBtn = document.getElementById(nextBtnId);
     if (prevBtn) prevBtn.disabled = currentPage <= 1;
     if (nextBtn) nextBtn.disabled = currentPage * pageSize >= totalItems;
 }
 
-// Обновление текста
-function updateShowingText(data) {
-    const showingElement = document.getElementById('showingText');
-    if (showingElement) {
-        const start = ((currentPage - 1) * pageSize) + 1;
-        const end = Math.min(currentPage * pageSize, totalItems);
-        const text = `Показано ${start}-${end} из ${totalItems.toLocaleString()}`;
-        showingElement.textContent = text;
+// Обновляет текст с информацией о показываемых записях
+function updateShowingText(){
+    const elem = document.getElementById(showingTextId);
+    if (!elem) return;
+    const start = totalItems === 0 ? 0 : ((currentPage - 1) * pageSize) + 1;
+    const end = Math.min(currentPage * pageSize, totalItems);
+    elem.textContent = `Показано ${start}-${end} из ${totalItems.toLocaleString()}`;
+}
+
+// Рендерит строки таблицы транзакций
+function renderTable(items, formatDate) {
+    const tbody = document.getElementById(tableId);
+    if (!items.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">Нет данных</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = items.map(t => `
+        <tr>
+            <td>${formatDate(t.occurred_at)}</td>
+            <td><span class="badge bg-primary">${t.PVP_code || "—"}</span></td>
+            <td><code>${t.transponder || "—"}</code></td>
+            <td>${t.base_tariff ? t.base_tariff.toLocaleString() + " ₽" : "—"}</td>
+            <td>${t.discount ? `<span class="badge bg-success">${t.discount}%</span>` : "—"}</td>
+            <td>${t.paid ? t.paid.toLocaleString() + " ₽" : "—"}</td>
+        </tr>
+    `).join('');
+}
+
+function initDateFilters() {
+    const dateFromInput = document.getElementById("dateFromFilter");
+    const dateToInput = document.getElementById("dateToFilter");
+
+    if (dateFromInput) {
+        dateFromInput.addEventListener("change", () => {
+            // Если выбрана дата "от", но нет даты "до" - применяем фильтр
+            if (dateFromInput.value && !dateToInput.value) {
+                applyFilters();
+            }
+        });
+    }
+
+    if (dateToInput) {
+        dateToInput.addEventListener("change", applyFilters);
     }
 }
 
-// Загрузка транзакций
-async function loadTransactions(page = 1) {
-    currentPage = page;
+async function loadTransponders() {
+    try {
+        const response = await fetch("/transactions/transponders");
+        if (!response.ok) throw new Error(response.status);
+        const data = await response.json();
 
+        const select = document.getElementById("filterTransponder");
+        if (!select) return;
+
+        select.innerHTML = `<option value="">Все транспондеры</option>` +
+            data.items.map(t => `<option value="${t}">${t}</option>`).join('');
+
+        // Слушатель изменения транспондера
+        select.addEventListener("change", () => {
+            applyFilters();
+        });
+
+    } catch (err) {
+        console.error("Ошибка загрузки транспондеров:", err);
+    }
+}
+
+// collectFilters() берёт текущее значение select
+function collectFilters() {
+    return {
+        transponder: document.getElementById("filterTransponder")?.value || "",
+        date_from: document.getElementById("dateFromFilter")?.value || "",
+        date_to: document.getElementById("dateToFilter")?.value || ""
+    };
+}
+
+// Загружает данные транзакций с сервера
+async function loadData(page = 1) {
+    currentPage = page;
     showLoading(true);
 
     try {
         const params = new URLSearchParams({
-            page: currentPage.toString(),
-            page_size: pageSize.toString(),
+            page: currentPage,
+            page_size: pageSize,
             ...currentFilters
         });
 
-        const response = await fetch(`/transactions/info?${params.toString()}`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        const response = await fetch(`${apiUrl}?${params.toString()}`);
+        if (!response.ok) throw new Error(response.status);
 
         const data = await response.json();
-
         totalItems = data.total || 0;
-        displayTransactions(data.items || []);
-        updatePagination(data);
-        updateShowingText(data);
 
-    } catch (error) {
-        console.error('Ошибка загрузки транзакций:', error);
-        showError('Ошибка загрузки данных: ' + error.message);
+        renderTable(data.items || [], formatDateTime);
+        updatePagination();
+        updateShowingText();
+    } catch (err) {
+        showError(`Ошибка загрузки данных: ${err.message}`);
     } finally {
         showLoading(false);
     }
 }
 
-// Применение фильтров
+// Применяет фильтры и перезагружает данные
 function applyFilters() {
-    currentFilters = {};
-
-    const sourceFilter = document.getElementById('sourceFilter');
-    const transponderFilter = document.getElementById('transponderFilter');
-    const dateFromFilter = document.getElementById('dateFromFilter');
-    const dateToFilter = document.getElementById('dateToFilter');
-
-    if (sourceFilter && sourceFilter.value) currentFilters.source = sourceFilter.value;
-    if (transponderFilter && transponderFilter.value) currentFilters.transponder = transponderFilter.value;
-    if (dateFromFilter && dateFromFilter.value) currentFilters.date_from = dateFromFilter.value;
-    if (dateToFilter && dateToFilter.value) currentFilters.date_to = dateToFilter.value;
-
-    loadTransactions(1);
+    currentFilters = collectFilters();
+    loadData(1);
 }
 
-// Навигация по страницам
-function prevPage() {
-    if (currentPage > 1) {
-        loadTransactions(currentPage - 1);
+function toggleDateRangeForm() {
+    const form = document.getElementById('dateRangeForm');
+    const button = document.getElementById('showDateRangeBtn');
+
+    // Проверяем текущее состояние через computed style
+    const computedStyle = window.getComputedStyle(form);
+    const isVisible = computedStyle.display !== 'none';
+
+    if (isVisible) {
+        // Скрываем форму с !important
+        form.style.cssText = 'display: none !important';
+        button.innerHTML = 'За выбранный период';
+    } else {
+        // Показываем форму с !important
+        form.style.cssText = 'display: flex !important';
+        button.innerHTML = 'Скрыть выбор периода';
     }
 }
 
-function nextPage() {
-    if (currentPage * pageSize < totalItems) {
-        loadTransactions(currentPage + 1);
-    }
+// Инициализирует страницу транзакций
+function init() {
+    if (!document.getElementById(tableId)) return;
+
+    loadData();
+    
+    const refreshBtn = document.getElementById(refreshBtnId);
+    if (refreshBtn) refreshBtn.addEventListener("click", () => loadData(1));
+
+    const filterTrigger = document.getElementById(filterTriggerId);
+    if (filterTrigger) filterTrigger.addEventListener("change", applyFilters);
+
+    const prevBtn = document.getElementById(prevBtnId);
+    const nextBtn = document.getElementById(nextBtnId);
+
+    if (prevBtn) prevBtn.addEventListener("click", () => {
+        if (currentPage > 1) loadData(currentPage - 1);
+    });
+
+    if (nextBtn) nextBtn.addEventListener("click", () => {
+        if (currentPage * pageSize < totalItems) loadData(currentPage + 1);
+    });
+
+    initDateFilters();
 }
 
-// Инициализация при загрузке страницы
-function initTransactionsPage() {
-    if (document.getElementById('transactionsTable')) {
-        console.log('Инициализация страницы транзакций...');
-        loadTransactions();
-        loadStats();
+async function scrapeRange(){
+    const fromInput = document.getElementById("customDateFrom");
+    const toInput = document.getElementById("customDateTo");
 
-        const dateToFilter = document.getElementById('dateToFilter');
-        if (dateToFilter) {
-            const today = new Date().toISOString().split('T')[0];
-            dateToFilter.value = today;
+    scrapeFrom = fromInput.value;
+    scrapeTo = toInput.value;
+
+    try {
+        isScraping = true;
+
+        const progressBar = document.getElementById("scrapeProgress");
+        progressBar.style.width = "0%";
+
+        const res = await fetch(`/transactions/scrape-range?date_from=${scrapeFrom}&date_to=${scrapeTo}`, {
+            method: "POST"
+        });
+
+        if (!res.ok) throw new Error("Ошибка запуска");
+        updateProgress();
+
+    } catch (err) {
+        console.error("Ошибка скрапинга:", err);
+        alert("Ошибка: " + err.message);
+    }
+};
+
+function formatDate(date) {
+    return date.toISOString().split("T")[0];
+}
+
+function scrapeDay() {
+    const today = new Date();
+    const from = formatDate(today);
+    const to = formatDate(today);
+
+    document.getElementById("customDateFrom").value = from;
+    document.getElementById("customDateTo").value = to;
+
+    scrapeRange();
+}
+
+function scrapeWeek() {
+    const today = new Date();
+    const weekAgo = new Date();
+    weekAgo.setDate(today.getDate() - 7);
+
+    document.getElementById("customDateFrom").value = formatDate(weekAgo);
+    document.getElementById("customDateTo").value = formatDate(today);
+
+    scrapeRange();
+}
+
+function scrapeMonth() {
+    const today = new Date();
+    const monthAgo = new Date();
+    monthAgo.setMonth(today.getMonth() - 1);
+
+    document.getElementById("customDateFrom").value = formatDate(monthAgo);
+    document.getElementById("customDateTo").value = formatDate(today);
+
+    scrapeRange();
+}
+
+async function uploadFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+        isScraping = true;
+        const progressBar = document.getElementById("scrapeProgress");
+        progressBar.style.width = "0%";
+        updateProgress();
+
+        const response = await fetch('/transactions/import', {
+            method: 'POST',
+            body: formData
+        })
+        if (!response.ok) {
+            const text = await response.text();
+            console.error("Server error:", response.status, text);
+            throw new Error(`Ошибка загрузки файла: ${response.status}`);
         }
 
-        const dateFromFilter = document.getElementById('dateFromFilter');
-        if (dateFromFilter) {
-            const weekAgo = new Date();
-            weekAgo.setDate(weekAgo.getDate() - 7);
-            dateFromFilter.value = weekAgo.toISOString().split('T')[0];
+        const data = await response.json();
+
+        if (data.saved !== undefined) {
+            loadData(1);
+            loadDashboardDataTransactions();
         }
+
+        isScraping = false;
+    } catch(err) {
+        console.error('Ошибка:', err)
     }
 }
 
+function scrapeFile(fileType = null) {
+    const input = document.createElement('input');
+    input.type = 'file';
+
+    if (fileType) {
+        input.accept = fileType === 'csv' ? '.csv' :
+                      fileType === 'xlsx' ? '.xlsx,.xls' :
+                      '.pdf';
+    }
+
+    input.onchange = function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (fileType) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            const validExts = fileType === 'xlsx' ? ['xlsx', 'xls'] : [fileType];
+
+            if (!validExts.includes(ext)) {
+                alert(`Выберите ${fileType.toUpperCase()} файл`);
+                return;
+            }
+        }
+
+        uploadFile(file);
+    };
+
+    input.click();
+}
+
+window.scrapeFile = scrapeFile;
+window.scrapeDay = scrapeDay;
+window.scrapeWeek = scrapeWeek;
+window.scrapeMonth = scrapeMonth;
+window.scrapeRange = scrapeRange;
+window.applyFilters = applyFilters;
+window.toggleDateRangeForm = toggleDateRangeForm;
+
+// Инициализация после загрузки DOM
 document.addEventListener("DOMContentLoaded", () => {
-
-    const refreshBtn = document.getElementById("refreshBtn");
-    const sourceFilter = document.getElementById("sourceFilter");
-
-    if (!refreshBtn || !sourceFilter) return;
-
-    refreshBtn.addEventListener("click", () => loadTransactions(1));
-    sourceFilter.addEventListener("change", applyFilters);
-
-    initTransactionsPage();
+    init();
+    loadDashboardDataTransactions();
+    loadTransponders();
 });
