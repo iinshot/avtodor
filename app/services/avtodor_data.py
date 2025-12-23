@@ -39,7 +39,7 @@ class AvtodorData:
 
         normalized = transponder.replace('\n', ' ').replace('\r', ' ')
         normalized = re.sub(r'\s+', ' ', normalized).strip()
-        return normalized
+        return normalized[:22]
 
     @staticmethod
     def _extract_pvp_and_vehicle_class(road: str) -> Tuple[str, Optional[int]]:
