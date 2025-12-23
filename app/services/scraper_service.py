@@ -1,18 +1,18 @@
-from .avtodor_manager import avtodor_manager
+from ..services.web_scraper.browser_manager import browser_manager
+from ..services.avtodor_manager import avtodor_manager
+from datetime import datetime
 
 class ScraperService:
     def __init__(self):
         self.manager = avtodor_manager
+        self.browser = browser_manager
 
-    async def scrape_and_save_trips(self) -> dict:
-        """Получает данные используя глобальный менеджер"""
+    async def scrape_range(self, date_from: datetime, date_to: datetime) -> dict:
         try:
-            result = await self.manager.sync_transactions()
+            result = await self.manager.sync_transactions(date_from, date_to)
             return result
         except Exception as e:
-            await self.manager.close()
-            await self.manager.initialize()
-            raise Exception(f"Ошибка при получении данных из Avtodor: {str(e)}")
+            raise Exception(f"Ошибка при обновлении данных за диапазон: {e}")
 
     async def check_credentials(self) -> bool:
         """Проверяет статус менеджера"""
@@ -20,7 +20,7 @@ class ScraperService:
             status = await self.manager.check_status()
             is_ready = status["initialized"] and status["authenticated"]
             if not is_ready:
-                is_ready = await self.manager.initialize()
+                is_ready = await self.browser.init
             return is_ready
         except Exception:
             return False
@@ -40,7 +40,7 @@ class ScraperService:
 
     async def reset_session(self):
         """Сбрасывает сессию"""
-        await self.manager.close()
-        await self.manager.initialize()
+        await self.browser.close
+        await self.browser.init
 
 scraper_service = ScraperService()
