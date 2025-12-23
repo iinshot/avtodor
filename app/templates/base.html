@@ -10,6 +10,10 @@
         .sidebar {
             min-height: calc(100vh - 56px);
             background-color: #f8f9fa;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
         }
         .violation-badge {
             background-color: #dc3545;
@@ -40,7 +44,7 @@
                     <ul class="nav flex-column">
                         <li class="nav-item">
                             <a class="nav-link active" href="/">
-                                <i class="fas fa-tachometer-alt"></i> Дашборд
+                                <i class="fas fa-tachometer-alt"></i> Главное меню
                             </a>
                         </li>
                         <li class="nav-item">
@@ -54,6 +58,7 @@
                             </a>
                         </li>
                     </ul>
+                    <div id="sidebarStats" class="mt-4"></div>
                 </div>
             </nav>
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">

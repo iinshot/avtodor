@@ -8,44 +8,60 @@
             <button type="button" class="btn btn-sm btn-outline-primary" id="refreshBtn" onclick="loadTransactions()">
                 <i class="fas fa-sync-alt"></i> Обновить
             </button>
-            <a href="/" class="btn btn-sm btn-outline-secondary">
-                <i class="fas fa-arrow-left"></i> Назад
-            </a>
         </div>
     </div>
 </div>
 
-<!-- Статистика -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card text-white bg-primary">
-            <div class="card-body">
-                <h6 class="card-title">Всего транзакций</h6>
-                <h3 id="totalTransactions">0</h3>
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Получение данных</h5>
+    </div>
+    <div class="card-body">
+        <!-- Основная строка с элементами -->
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <!-- Прогресс-бар слева -->
+            <div style="flex-shrink:0; width: 150px; height: 20px; background: #e9ecef; border-radius: 5px; overflow: hidden;">
+                <div id="scrapeProgress" style="width: 0%; height: 100%; background: #0d6efd; transition: width 0.5s;"></div>
+            </div>
+
+            <!-- Центральная часть с кнопками -->
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <button type="button" class="btn btn-sm btn-outline-primary px-3" onclick="scrapeDay()">За день</button>
+                <button type="button" class="btn btn-sm btn-outline-primary px-3" onclick="scrapeWeek()">За неделю</button>
+                <button type="button" class="btn btn-sm btn-outline-primary px-3" onclick="scrapeMonth()">За месяц</button>
+
+                <!-- Кнопка для показа формы выбора дат -->
+                <button type="button" class="btn btn-sm btn-outline-success px-3"
+                        onclick="toggleDateRangeForm()" id="showDateRangeBtn">
+                    За выбранный период
+                </button>
+
+                <button type="button" class="btn btn-sm btn-outline-danger px-3" onclick="scrapeFile('csv')">Из CSV</button>
+                <button type="button" class="btn btn-sm btn-outline-danger px-3" onclick="scrapeFile('xlsx')">Из XLSX</button>
+                <button type="button" class="btn btn-sm btn-outline-danger px-3" onclick="scrapeFile('pdf')">Из PDF</button>
+                <input type="file" id="fileInput" style="display:none" />
+            </div>
+
+            <!-- Счетчик справа -->
+            <div id="scrapeCount" style="flex-shrink:0; min-width:120px; text-align:right; font-weight:500;">
+                0 записей
             </div>
         </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-success">
-            <div class="card-body">
-                <h6 class="card-title">За сегодня</h6>
-                <h3 id="todayTransactions">0</h3>
+
+        <!-- Форма выбора дат (отдельный блок, не влияет на верхнюю строку) -->
+        <div id="dateRangeForm" style="display: none !important;" class="d-flex gap-2 align-items-center justify-content-center mt-2">
+            <div class="input-group input-group-sm" style="width: 130px;">
+                <input type="date" class="form-control form-control-sm" id="customDateFrom">
             </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-info">
-            <div class="card-body">
-                <h6 class="card-title">Из Avtodor</h6>
-                <h3 id="avtodorTransactions">0</h3>
+
+            <div class="input-group input-group-sm" style="width: 130px;">
+                <input type="date" class="form-control form-control-sm" id="customDateTo">
             </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-warning">
-            <div class="card-body">
-                <h6 class="card-title">Сумма за сегодня</h6>
-                <h3 id="todayTotalPaid">0 ₽</h3>
+
+            <div class="d-flex gap-1">
+                <button type="button" class="btn btn-sm btn-success" onclick="scrapeRange()">
+                    <i class="fas fa-play"></i>
+                </button>
             </div>
         </div>
     </div>
@@ -55,28 +71,23 @@
 <div class="card mb-4">
     <div class="card-header">
         <h5 class="mb-0">Фильтры</h5>
-    </div>
+    </div >
+
     <div class="card-body">
-        <div class="row g-3">
+        <div class="row g-3" style="display: flex; justify-content: center">
             <div class="col-md-3">
-                <label class="form-label">Источник данных</label>
-                <select class="form-select" id="sourceFilter" onchange="applyFilters()">
-                    <option value="">Все источники</option>
-                    <option value="avtodor_scraper">Avtodor</option>
-                    <option value="manual">Ручной ввод</option>
+                <label class="form-label">Транспондер</label>
+                <select class="form-control" id="filterTransponder">
+                    <option value="">Все транспондеры</option>
                 </select>
             </div>
             <div class="col-md-3">
-                <label class="form-label">Транспондер</label>
-                <input type="text" class="form-control" id="transponderFilter" placeholder="Номер транспондера" oninput="applyFilters()">
-            </div>
-            <div class="col-md-3">
                 <label class="form-label">Дата от</label>
-                <input type="date" class="form-control" id="dateFromFilter" onchange="applyFilters()">
+                <input type="date" class="form-control" id="dateFromFilter">
             </div>
             <div class="col-md-3">
                 <label class="form-label">Дата до</label>
-                <input type="date" class="form-control" id="dateToFilter" onchange="applyFilters()">
+                <input type="date" class="form-control" id="dateToFilter">
             </div>
         </div>
     </div>
@@ -89,10 +100,10 @@
         <div class="d-flex align-items-center">
             <span class="me-2 text-muted" id="showingText">Загрузка...</span>
             <div class="btn-group">
-                <button class="btn btn-sm btn-outline-secondary" onclick="prevPage()" id="prevBtn">
+                <button class="btn btn-sm btn-outline-secondary" id="prevBtnTransaction">
                     <i class="fas fa-chevron-left"></i>
                 </button>
-                <button class="btn btn-sm btn-outline-secondary" onclick="nextPage()" id="nextBtn">
+                <button class="btn btn-sm btn-outline-secondary" id="nextBtnTransaction">
                     <i class="fas fa-chevron-right"></i>
                 </button>
             </div>
@@ -125,5 +136,36 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/transactions.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("sidebarStats").innerHTML = `
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-body">
+                <h6 class="card-title">Всего транзакций</h6>
+                <h3 id="totalTransactions">--</h3>
+            </div>
+        </div>
+        <div class="card text-white bg-success mb-3">
+            <div class="card-body">
+                <h6 class="card-title">За сегодня</h6>
+                <h3 id="todayTransactions">--</h3>
+            </div>
+        </div>
+        <div class="card text-white bg-warning mb-3">
+            <div class="card-body">
+                <h6 class="card-title">За месяц</h6>
+                <h3 id="monthTransactions">--</h3>
+            </div>
+        </div>
+        <div class="card text-white bg-info mb-3">
+            <div class="card-body">
+                <h6 class="card-title">Сумма за месяц</h6>
+                <h3 id="monthPaidTransactions">₽ --</h3>
+            </div>
+        </div>
+    `;
+});
+</script>
+
+<script type="module" src="/static/js/transactions.js"></script>
 {% endblock %}

@@ -3,80 +3,107 @@
 {% block content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">Нарушения маршрутов</h1>
-    <div class="btn-toolbar mb-2 mb-md-0">
-        <button class="btn btn-sm btn-outline-danger me-2" id="exportBtn">
-            <i class="fas fa-file-export"></i> Экспорт
-        </button>
-    </div>
 </div>
 
-<!-- Сводка по нарушениям -->
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card border-danger">
-            <div class="card-body">
-                <h5 class="card-title">Всего нарушений</h5>
-                <h2 class="text-danger">{{ total_violations }}</h2>
-            </div>
-        </div>
+<!-- Фильтры -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Фильтры</h5>
     </div>
-    <div class="col-md-4">
-        <div class="card border-warning">
-            <div class="card-body">
-                <h5 class="card-title">Сумма нарушений</h5>
-                <h2 class="text-warning">₽{{ total_amount }}</h2>
+    <div class="card-body">
+        <div class="row g-3" style="display: flex; justify-content: center">
+            <div class="col-md-3">
+                <label class="form-label">Транспондер</label>
+                <select class="form-control" id="filterTransponder">
+                    <option value="">Все транспондеры</option>
+                </select>
             </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card border-info">
-            <div class="card-body">
-                <h5 class="card-title">Затронуто ПВП</h5>
-                <h2 class="text-info">{{ affected_pvp_count }}</h2>
+            <div class="col-md-3">
+                <label class="form-label">Дата от</label>
+                <input type="date" class="form-control" id="filterDateFrom">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Дата до</label>
+                <input type="date" class="form-control" id="filterDateTo">
             </div>
         </div>
     </div>
 </div>
 
 <!-- Таблица нарушений -->
-<div class="table-responsive">
-    <table class="table table-striped table-hover">
-        <thead class="table-dark">
-            <tr>
-                <th>Транспондер</th>
-                <th>ПВП</th>
-                <th>Дата нарушения</th>
-                <th>Сумма</th>
-                <th>Причина</th>
-                <th>Статус</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for violation in violations %}
-            <tr>
-                <td>
-                    <strong>{{ violation.transponder }}</strong>
-                </td>
-                <td>
-                    <span class="badge bg-danger">{{ violation.PVP_code }}</span>
-                </td>
-                <td>{{ violation.occurred_at }}</td>
-                <td>
-                    <strong class="text-danger">₽{{ violation.base_tariff }}</strong>
-                </td>
-                <td>
-                    {% if violation.reason %}
-                    {{ violation.reason }}
-                    {% else %}
-                    <span class="text-muted">Запрещенный участок</span>
-                    {% endif %}
-                </td>
-                <td>
-                    <span class="badge bg-warning">Требует проверки</span>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Список нарушений</h5>
+        <div class="d-flex align-items-center">
+            <span class="me-2 text-muted" id="showingText">Загрузка...</span>
+            <div class="btn-group">
+                <button class="btn btn-sm btn-outline-secondary" id="prevBtnViolation">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" id="nextBtnViolation">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Дата и время</th>
+                        <th>ПВП</th>
+                        <th>Транспондер</th>
+                        <th>Базовая стоимость</th>
+                        <th>Скидка</th>
+                        <th>Оплачено</th>
+                    </tr>
+                </thead>
+                <tbody id="violationsTable"></tbody>
+            </table>
+        </div>
+        <div id="loadingIndicator" class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Загрузка...</span>
+            </div>
+            <p class="mt-2 text-muted">Загрузка нарушений...</p>
+        </div>
+    </div>
 </div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("sidebarStats").innerHTML = `
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-body">
+                <h6 class="card-title">Всего нарушений</h6>
+                <h3 id="totalViolations">--</h3>
+            </div>
+        </div>
+        <div class="card text-white bg-success mb-3">
+            <div class="card-body">
+                <h6 class="card-title">За сегодня</h6>
+                <h3 id="todayViolations">--</h3>
+            </div>
+        </div>
+        <div class="card text-white bg-warning mb-3">
+            <div class="card-body">
+                <h6 class="card-title">За месяц</h6>
+                <h3 id="monthViolations">--</h3>
+            </div>
+        </div>
+        <div class="card text-white bg-info mb-3">
+            <div class="card-body">
+                <h6 class="card-title">Сумма за месяц</h6>
+                <h3 id="monthPaidViolations">₽ --</h3>
+            </div>
+        </div>
+    `;
+});
+</script>
+
+<script type="module" src="/static/js/violations.js"></script>
 {% endblock %}
